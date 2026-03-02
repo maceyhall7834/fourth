@@ -36,11 +36,12 @@ async function downloadFile(url) {
 // the value is pulled from process.env.token (set by dotenv or environment)
 const bot = new Eris(process.env.token);
 
-// warn if token is missing so the error is clearer
+// Startup logging for Render deployment
+console.log('BOT: token present?', !!process.env.token);
 if (!process.env.token) {
-  console.error('No bot token provided. Set TOKEN in your .env or environment.');
-  process.exit(1);
+  console.warn('No bot token provided; bot will not attempt to connect.');
 }
+
 
 // Command prefixes
 const prefix = '7';
@@ -125,4 +126,3 @@ bot.on("error", (err) => {
 
 // Connect the bot and keep it alive
 bot.connect();
-keep_alive();
