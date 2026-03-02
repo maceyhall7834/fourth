@@ -1,6 +1,3 @@
-// load environment variables from .env (token etc.)
-require('dotenv').config();
-
 const Eris = require("eris");
 const keep_alive = require('./keep_alive.js');
 const https = require('https');
