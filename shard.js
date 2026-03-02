@@ -3,11 +3,13 @@
 const Eris = require("eris");
 
 module.exports = function patchShard(Shard) {
+  const { GATEWAY_VERSION, GatewayOPCodes } = Eris.Constants;  // Access constants directly
+
   Shard.prototype.identify = function () {
     this.status = "identifying";
     const identify = {
       token: this._token,
-      v: Eris.Constants.GATEWAY_VERSION,
+      v: GATEWAY_VERSION,
       compress: !!this.client.options.compress,
       large_threshold: this.client.options.largeThreshold,
       intents: this.client.options.intents,
@@ -23,6 +25,7 @@ module.exports = function patchShard(Shard) {
     if (this.presence.status) {
       identify.presence = this.presence;
     }
-    this.sendWS(Eris.Constants.GatewayOPCodes.IDENTIFY, identify);
+    
+    this.sendWS(GatewayOPCodes.IDENTIFY, identify);  // This line will work correctly
   };
 };
