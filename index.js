@@ -4,40 +4,42 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// override the identify payload so Discord treats us as mobile
-try {
-  const Shard = require('eris/lib/gateway/Shard');
-  const Constants = require('eris/lib/Constants');
-  const { GATEWAY_VERSION, GatewayOPCodes } = Constants;
+// shard.js
+// patch Eris's Shard.identify method so Discord treats the connection as mobile
+// (overrides default "Eris"/"web" fields). This patch is applied when
+// the module is loaded.
 
-  Shard.prototype.identify = function () {
-    // largely copied from the original implementation in Shard.js,
-    // only overriding the properties object.  we skip the zlib/compress
-    // check since the default isn't enabled and we don't need it.
-    this.status = "identifying";
-    const identify = {
-      token: this._token,
-      v: GATEWAY_VERSION,
-      compress: !!this.client.options.compress,
-      large_threshold: this.client.options.largeThreshold,
-      intents: this.client.options.intents,
-      properties: {
-        os: "Android",
-        browser: "Discord Android",
-        device: "mobile",
-      },
+module.exports = function patchShard() {
+  try {
+    const { Constants, Shard } = require('eris');
+    const { GATEWAY_VERSION, GatewayOPCodes } = Constants;
+
+    Shard.prototype.identify = function () {
+      // same logic as upstream, but with mobile device properties
+      this.status = "identifying";
+      const identify = {
+        token: this._token,
+        v: GATEWAY_VERSION,
+        compress: !!this.client.options.compress,
+        large_threshold: this.client.options.largeThreshold,
+        intents: this.client.options.intents,
+        properties: {
+          os: "Android",
+          browser: "Discord Android",
+          device: "mobile",
+        },
+      };
+      if (this.client.options.maxShards > 1) {
+        identify.shard = [this.id, this.client.options.maxShards];
+      }
+      if (this.presence.status) identify.presence = this.presence;
+      this.sendWS(GatewayOPCodes.IDENTIFY, identify);
     };
-    if (this.client.options.maxShards > 1) {
-      identify.shard = [this.id, this.client.options.maxShards];
-    }
-    if (this.presence.status) {
-      identify.presence = this.presence;
-    }
-    this.sendWS(GatewayOPCodes.IDENTIFY, identify);
-  };
-} catch (e) {
-  console.warn('Could not patch Shard.identify for mobile device', e);
-}
+  } catch (e) {
+    // if Eris internals change or module can't be loaded, warn and continue
+    console.warn('Could not patch Shard.identify for mobile device', e);
+  }
+};
 
 // simple helper to download a URL to a temp file and return the path
 async function downloadFile(url) {
