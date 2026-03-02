@@ -149,7 +149,7 @@ bot.on('messageCreate', async (msg) => {
   }
 });
 
-console.log('Starting bot connection...');
+
 bot.connect().then(() => {
     console.log('Bot connected successfully.');
     keep_alive(); // Move keep_alive here
