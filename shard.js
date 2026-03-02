@@ -5,9 +5,8 @@
 
 module.exports = function patchShard() {
   try {
-    const Constants = require('eris/lib/Constants');
+    const { Constants, Shard } = require('eris');
     const { GATEWAY_VERSION, GatewayOPCodes } = Constants;
-    const Shard = require('eris/lib/gateway/Shard');
 
     Shard.prototype.identify = function () {
       // same logic as upstream, but with mobile device properties
