@@ -5,16 +5,14 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-  // Set mobile properties in shard options
-  shardOptions: {
-    properties: {
-      os: "Android",
-      browser: "Discord Android",
-      device: "mobile"
-    }
-  },
-  // Adjust other options if necessary
-});
+// Set mobile properties in shard options
+const shardOptions = {
+  properties: {
+    os: "Android",
+    browser: "Discord Android",
+    device: "mobile"
+  }
+};
 
 // simple helper to download a URL to a temp file and return the path
 async function downloadFile(url) {
