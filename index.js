@@ -56,9 +56,14 @@ bot.on('messageCreate', async (msg) => {
   }
 });
 
+// Log when the bot connects
+bot.on('ready', () => {
+  console.log('Bot is connected and ready!');
+});
+
 // Handle any connection errors
 bot.on("error", (err) => {
-  console.error(err); // or your preferred logger
+  console.error(`Bot encountered an error: ${err.message}`);
 });
 
 // Connect the bot and keep it alive
