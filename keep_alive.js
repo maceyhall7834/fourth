@@ -1,6 +1,11 @@
-var http = require('http');
+// keep_alive.js
+const http = require('http');
 
-http.createServer(function (req, res) {
-  res.write("I'm alive");
-  res.end();
-}).listen(8080);
+const keep_alive = () => {
+  http.createServer((req, res) => {
+    res.write("I'm alive");
+    res.end();
+  }).listen(8080);
+};
+
+module.exports = keep_alive; // Ensure you're exporting the function
