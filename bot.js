@@ -126,3 +126,4 @@ bot.on("error", (err) => {
 
 // Connect the bot and keep it alive
 bot.connect();
+keep_alive();
