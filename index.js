@@ -146,10 +146,4 @@ bot.on('messageCreate', async (msg) => {
   }
 });
 
-
-bot.connect().then(() => {
-    console.log('Bot connected successfully.');
-    keep_alive(); // Move keep_alive here
-}).catch(err => {
-    console.error(`Failed to connect bot: ${err.message}`);
-});
+bot.connect(); // Get the bot to connect to Discord
