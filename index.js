@@ -1,16 +1,9 @@
-// index.js
+// entrypoint for the application
+// dotenv must be configured first so other modules can read environment values
+require('dotenv').config();
 
-const keep_alive = require('./keep_alive.js');
-const { Shard } = require('eris/lib/gateway');
-const patchShard = require('./shard.js');
-const bot = require('./bot.js');
+// apply mobile-identify patch to shard logic
+require('./shard')();
 
-// Patch the Shard with the mobile override
-patchShard(Shard);
-
-if (!process.env.token) {
-  console.error('No bot token provided. Set TOKEN in your .env or environment.');
-  process.exit(1);
-}
-
-bot.connect(); // Connect the bot to Discord
+// start the main bot logic (creates the client, registers handlers, connects, etc.)
+require('./bot');
