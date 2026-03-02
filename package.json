@@ -4,5 +4,6 @@
   "main": "index.js",
   "dependencies": {
     "eris": ""
+    "dotenv": ""
   }
 }
