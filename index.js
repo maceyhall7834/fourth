@@ -4,18 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// shard.js
-// patch Eris's Shard.identify method so Discord treats the connection as mobile
-// (overrides default "Eris"/"web" fields). This patch is applied when
-// the module is loaded.
-
 module.exports = function patchShard() {
   try {
     const { Constants, Shard } = require('eris');
     const { GATEWAY_VERSION, GatewayOPCodes } = Constants;
 
     Shard.prototype.identify = function () {
-      // same logic as upstream, but with mobile device properties
       this.status = "identifying";
       const identify = {
         token: this._token,
@@ -33,13 +27,13 @@ module.exports = function patchShard() {
         identify.shard = [this.id, this.client.options.maxShards];
       }
       if (this.presence.status) identify.presence = this.presence;
+      console.log(`Identifying shard: ${this.id}`);
       this.sendWS(GatewayOPCodes.IDENTIFY, identify);
     };
   } catch (e) {
-    // if Eris internals change or module can't be loaded, warn and continue
     console.warn('Could not patch Shard.identify for mobile device', e);
   }
-};
+}
 
 // simple helper to download a URL to a temp file and return the path
 async function downloadFile(url) {
@@ -49,49 +43,54 @@ async function downloadFile(url) {
       const file = fs.createWriteStream(dest);
       https.get(url, (res) => {
         if (res.statusCode !== 200) {
+          console.error(`Download failed: ${res.statusCode}`);
           return reject(new Error(`Download failed: ${res.statusCode}`));
         }
         res.pipe(file);
         file.on('finish', () => {
-          file.close(() => resolve(dest));
+          file.close(() => {
+            console.log(`Downloaded file to: ${dest}`);
+            resolve(dest);
+          });
         });
       }).on('error', (err) => {
         fs.unlink(dest, () => {});
+        console.error('Error downloading file', err);
         reject(err);
       });
     } catch (err) {
+      console.error('Error in downloadFile', err);
       reject(err);
     }
   });
 }
 
 // Replace TOKEN with your bot account's token
-// the value is pulled from process.env.token (set by dotenv or environment)
 const bot = new Eris(process.env.token);
 
 // warn if token is missing so the error is clearer
 if (!process.env.token) {
   console.error('No bot token provided. Set TOKEN in your .env or environment.');
   process.exit(1);
+} else {
+  console.log(`Bot token provided, initializing bot...`);
 }
 
-// Command prefixes
 const prefix = '7';
 
 // Event listener for messages
 bot.on('messageCreate', async (msg) => {
+  console.log(`Message received from ${msg.author.username}: ${msg.content}`);
+
   // Ignore messages from the bot itself
   if (msg.author.id === bot.user.id) return;
 
-  // Handle the "7say" command
   if (msg.content.startsWith(`${prefix}say`)) {
     const messageContent = msg.content.slice(prefix.length + 4).trim();
     const attachmentUrl = msg.attachments.length > 0 ? msg.attachments[0].url : null;
-
-    // nothing to repeat
+    
     if (!messageContent && !attachmentUrl) return;
 
-    // if there's an attachment, download and re-upload the real file
     if (attachmentUrl) {
       try {
         const filePath = await downloadFile(attachmentUrl);
@@ -102,19 +101,18 @@ bot.on('messageCreate', async (msg) => {
           await bot.createMessage(msg.channel.id, { file: fileStream });
         }
         fs.unlink(filePath, () => {});
+        console.log(`Message sent to channel ${msg.channel.id} with attachment`);
       } catch (err) {
         console.error('Attachment relay failed', err);
-        // fallback: just send what we can
         const fallback = messageContent || attachmentUrl;
         await bot.createMessage(msg.channel.id, fallback);
       }
     } else {
-      // text-only
       await bot.createMessage(msg.channel.id, messageContent);
+      console.log(`Message sent to channel ${msg.channel.id}: ${messageContent}`);
     }
   }
 
-  // Handle the "7reply" command
   if (msg.content.startsWith(`${prefix}reply`)) {
     const args = msg.content.split(' ').slice(1);
     const messageId = args[0];
@@ -122,13 +120,14 @@ bot.on('messageCreate', async (msg) => {
 
     if (messageId) {
       await bot.createMessage(msg.channel.id, replyContent, { messageReference: messageId });
+      console.log(`Reply sent to message ${messageId}: ${replyContent}`);
     } else {
       const errorMsg = await bot.createMessage(msg.channel.id, "You didn't provide a message ID.");
+      console.log('Error: No message ID provided for reply');
       setTimeout(() => bot.deleteMessage(msg.channel.id, errorMsg.id), 5000);
     }
   }
 
-  // Handle the "7delete" command
   if (msg.content.startsWith(`${prefix}delete`)) {
     const args = msg.content.split(' ').slice(1);
     const messageId = args[0];
@@ -136,12 +135,13 @@ bot.on('messageCreate', async (msg) => {
     if (messageId) {
       try {
         await bot.deleteMessage(msg.channel.id, messageId);
+        console.log(`Message ${messageId} deleted from channel ${msg.channel.id}`);
       } catch (e) {
         console.error(`Failed to delete message: ${e.message}`);
       }
     } else {
-      // If not replying, send an error message and delete it after 5 seconds
       const errorMsg = await bot.createMessage(msg.channel.id, "You didn't provide a message ID.");
+      console.log('Error: No message ID provided for delete');
       setTimeout(() => bot.deleteMessage(msg.channel.id, errorMsg.id), 5000);
     }
   }
