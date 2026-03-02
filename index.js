@@ -6,4 +6,9 @@ require('dotenv').config();
 require('./shard')();
 
 // start the main bot logic (creates the client, registers handlers, connects, etc.)
-require('./bot');
+// guard by environment variable so web-only deployments can disable the bot
+if (process.env.RUN_BOT !== 'false') {
+  require('./bot');
+} else {
+  console.log('RUN_BOT=false; bot startup suppressed (web only).');
+}
