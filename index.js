@@ -5,14 +5,39 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Set mobile properties in shard options
-const shardOptions = {
-  properties: {
-    os: "Android",
-    browser: "Discord Android",
-    device: "mobile"
+// Patch Eris's Shard.identify method so Discord treats the connection as mobile
+module.exports = function patchShard() {
+  try {
+    const { Constants, Shard } = require('eris');
+    const { GATEWAY_VERSION, GatewayOPCodes } = Constants;
+
+    Shard.prototype.identify = function () {
+      this.status = "identifying";
+      const identify = {
+        token: this._token,
+        v: GATEWAY_VERSION,
+        compress: !!this.client.options.compress,
+        large_threshold: this.client.options.largeThreshold,
+        intents: this.client.options.intents,
+        properties: {
+          os: "Android",
+          browser: "Discord Android",
+          device: "mobile",
+        },
+      };
+      if (this.client.options.maxShards > 1) {
+        identify.shard = [this.id, this.client.options.maxShards];
+      }
+      if (this.presence.status) identify.presence = this.presence;
+      this.sendWS(GatewayOPCodes.IDENTIFY, identify);
+    };
+  } catch (e) {
+    console.warn('Could not patch Shard.identify for mobile device', e);
   }
 };
+
+// Call the patch function
+patchShard();
 
 // simple helper to download a URL to a temp file and return the path
 async function downloadFile(url) {
