@@ -61,29 +61,19 @@ bot.on('messageCreate', async (msg) => {
     const messageContent = msg.content.slice(prefix.length + 4).trim();
     const attachmentUrl = msg.attachments.length > 0 ? msg.attachments[0].url : null;
 
-    // nothing to repeat
     if (!messageContent && !attachmentUrl) return;
 
-    // if there's an attachment, download and re-upload the real file
-    if (attachmentUrl) {
-      try {
+    try {
+      if (attachmentUrl) {
         const filePath = await downloadFile(attachmentUrl);
         const fileStream = fs.createReadStream(filePath);
-        if (messageContent) {
-          await bot.createMessage(msg.channel.id, messageContent, { file: fileStream });
-        } else {
-          await bot.createMessage(msg.channel.id, { file: fileStream });
-        }
+        await bot.createMessage(msg.channel.id, messageContent || '', { file: { file: fileStream, name: 'attachment' } });
         fs.unlink(filePath, () => {});
-      } catch (err) {
-        console.error('Attachment relay failed', err);
-        // fallback: just send what we can
-        const fallback = messageContent || attachmentUrl;
-        await bot.createMessage(msg.channel.id, fallback);
+      } else {
+        await bot.createMessage(msg.channel.id, messageContent);
       }
-    } else {
-      // text-only
-      await bot.createMessage(msg.channel.id, messageContent);
+    } catch (err) {
+      console.error('Failed to send message:', err);
     }
   }
 
@@ -94,7 +84,11 @@ bot.on('messageCreate', async (msg) => {
     const replyContent = args.slice(1).join(' ');
 
     if (messageId) {
-      await bot.createMessage(msg.channel.id, replyContent, { messageReference: messageId });
+      try {
+        await bot.createMessage(msg.channel.id, replyContent, { messageReference: messageId });
+      } catch (e) {
+        console.error(`Failed to reply to message: ${e.message}`);
+      }
     } else {
       const errorMsg = await bot.createMessage(msg.channel.id, "You didn't provide a message ID.");
       setTimeout(() => bot.deleteMessage(msg.channel.id, errorMsg.id), 5000);
@@ -113,8 +107,28 @@ bot.on('messageCreate', async (msg) => {
         console.error(`Failed to delete message: ${e.message}`);
       }
     } else {
-      // If not replying, send an error message and delete it after 5 seconds
       const errorMsg = await bot.createMessage(msg.channel.id, "You didn't provide a message ID.");
+      setTimeout(() => bot.deleteMessage(msg.channel.id, errorMsg.id), 5000);
+    }
+  }
+
+  // Handle the "7purge" command
+  if (msg.content.startsWith(`${prefix}purge`)) {
+    const args = msg.content.split(' ').slice(1);
+    const numberOfMessages = parseInt(args[0]);
+
+    if (!isNaN(numberOfMessages) && numberOfMessages > 0) {
+      try {
+        // Fetch and delete the bot's messages
+        const messages = await bot.getMessages(msg.channel.id, { limit: numberOfMessages });
+        const botMessages = messages.filter(m => m.author.id === bot.user.id);
+
+        await Promise.all(botMessages.map(m => bot.deleteMessage(msg.channel.id, m.id)));
+      } catch (e) {
+        console.error(`Failed to purge messages: ${e.message}`);
+      }
+    } else {
+      const errorMsg = await bot.createMessage(msg.channel.id, "Please provide a valid number of messages to purge.");
       setTimeout(() => bot.deleteMessage(msg.channel.id, errorMsg.id), 5000);
     }
   }
