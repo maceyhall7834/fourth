@@ -6,7 +6,7 @@ const path = require('path');
 const os = require('os');
 
 // Patch Eris's Shard.identify method so Discord treats the connection as mobile
-module.exports = function patchShard() {
+function patchShard() {
   try {
     const { Constants, Shard } = require('eris');
     const { GATEWAY_VERSION, GatewayOPCodes } = Constants;
@@ -34,9 +34,9 @@ module.exports = function patchShard() {
   } catch (e) {
     console.warn('Could not patch Shard.identify for mobile device', e);
   }
-};
+}
 
-// Call the patch function
+// Call the patch function before creating the bot instance
 patchShard();
 
 // simple helper to download a URL to a temp file and return the path
