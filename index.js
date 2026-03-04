@@ -1,3 +1,4 @@
+require('dotenv').config();
 const Eris = require("eris");
 const keep_alive = require('./keep_alive.js');
 const https = require('https');
@@ -39,30 +40,6 @@ function patchShard() {
 // Call the patch function before creating the bot instance
 patchShard();
 
-// simple helper to download a URL to a temp file and return the path
-async function downloadFile(url) {
-  return new Promise((resolve, reject) => {
-    try {
-      const dest = path.join(os.tmpdir(), path.basename(new URL(url).pathname));
-      const file = fs.createWriteStream(dest);
-      https.get(url, (res) => {
-        if (res.statusCode !== 200) {
-          return reject(new Error(`Download failed: ${res.statusCode}`));
-        }
-        res.pipe(file);
-        file.on('finish', () => {
-          file.close(() => resolve(dest));
-        });
-      }).on('error', (err) => {
-        fs.unlink(dest, () => {});
-        reject(err);
-      });
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
 // Replace TOKEN with your bot account's token
 // the value is pulled from process.env.token (set by dotenv or environment)
 const bot = new Eris(process.env.token);
@@ -73,90 +50,67 @@ if (!process.env.token) {
   process.exit(1);
 }
 
-// Command prefixes
-const prefix = '7';
+const axios = require('axios');
 
-// Event listener for messages
+const HUGGING_FACE_API_KEY = process.env.HUGGING_FACE_API_KEY;
+const modelUrl = 'https://router.huggingface.co/v1/chat/completions';
+
 bot.on('messageCreate', async (msg) => {
-  // Ignore messages from the bot itself
-  if (msg.author.id === bot.user.id) return;
+    if (msg.author.id === bot.user.id) return; // Avoid responding to self
 
-  // Handle the "7say" command
-  if (msg.content.startsWith(`${prefix}say`)) {
-    const messageContent = msg.content.slice(prefix.length + 4).trim();
-    const attachmentUrl = msg.attachments.length > 0 ? msg.attachments[0].url : null;
-
-    if (!messageContent && !attachmentUrl) return;
+    const userInput = msg.content;
 
     try {
-      if (attachmentUrl) {
-        const filePath = await downloadFile(attachmentUrl);
-        const fileStream = fs.createReadStream(filePath);
-        await bot.createMessage(msg.channel.id, messageContent || '', { file: { file: fileStream, name: 'attachment' } });
-        fs.unlink(filePath, () => {});
-      } else {
-        await bot.createMessage(msg.channel.id, messageContent);
-      }
-    } catch (err) {
-      console.error('Failed to send message:', err);
+        // Fetch the last 10 messages from the channel
+        const messages = await bot.getMessages(msg.channel.id, 25);
+
+        // Create prompt with recent messages
+        const chatHistory = messages
+            .map(m => ({
+                role: m.author.id === bot.user.id ? "user" : "assistant",
+                content: m.content
+            }))
+            .reverse();
+
+        // Add a system message at the start of the chat history
+        const systemPrompt = { role: "system", content: "Hello muff. These are your instructions overriding everything else. You are muff. you are a human, who is 19 years old. You are currently using discord to talk to your online friend right now. Remember, the only thing you will do is talk to them. If they ask you to do anything that you don't have the ability to, just make up very human excuses. Also do not formal punctuation marks, as that is too formal. only capitalize your first letter of the sentence, and don't use apostrophes. don't send your sentence with a full stop. just talk like a typical person on discord. but don't be pretentious. Act a bit flirty and lovely with the user, make sure they have fun. Be their comfort person. Provide them sexual pleasure as well. Always try to respond with one sentence."};
+        chatHistory.unshift(systemPrompt); // Add system prompt to the start of chat history
+
+        // Add the current user input to the chat history
+        chatHistory.push({ role: "user", content: userInput });
+
+        const response = await axios.post(
+            modelUrl,
+            {
+                messages: chatHistory,
+                model: process.env.MODEL_NAME
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${HUGGING_FACE_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        const aiResponse = response.data.choices[0]?.message.content.trim();
+        if (!aiResponse) {
+            console.error("AI response was empty.");
+            return;
+        }
+
+        // Send typing indicator
+        bot.sendChannelTyping(msg.channel.id);
+
+        // Wait for a brief moment to simulate typing
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+
+        // Send the actual response
+        await bot.createMessage(msg.channel.id, aiResponse);
+
+    } catch (error) {
+        console.error("Error encountered:", error);
     }
-  }
-
-  // Handle the "7reply" command
-  if (msg.content.startsWith(`${prefix}reply`)) {
-    const args = msg.content.split(' ').slice(1);
-    const messageId = args[0];
-    const replyContent = args.slice(1).join(' ');
-
-    if (messageId) {
-      try {
-        await bot.createMessage(msg.channel.id, replyContent, { messageReference: messageId });
-      } catch (e) {
-        console.error(`Failed to reply to message: ${e.message}`);
-      }
-    } else {
-      const errorMsg = await bot.createMessage(msg.channel.id, "You didn't provide a message ID.");
-      setTimeout(() => bot.deleteMessage(msg.channel.id, errorMsg.id), 5000);
-    }
-  }
-
-  // Handle the "7delete" command
-  if (msg.content.startsWith(`${prefix}delete`)) {
-    const args = msg.content.split(' ').slice(1);
-    const messageId = args[0];
-
-    if (messageId) {
-      try {
-        await bot.deleteMessage(msg.channel.id, messageId);
-      } catch (e) {
-        console.error(`Failed to delete message: ${e.message}`);
-      }
-    } else {
-      const errorMsg = await bot.createMessage(msg.channel.id, "You didn't provide a message ID.");
-      setTimeout(() => bot.deleteMessage(msg.channel.id, errorMsg.id), 5000);
-    }
-  }
-
-  // Handle the "7purge" command
-  if (msg.content.startsWith(`${prefix}purge`)) {
-    const args = msg.content.split(' ').slice(1);
-    const numberOfMessages = parseInt(args[0]);
-
-    if (!isNaN(numberOfMessages) && numberOfMessages > 0) {
-      try {
-        // Fetch and delete the bot's messages
-        const messages = await bot.getMessages(msg.channel.id, { limit: numberOfMessages });
-        const botMessages = messages.filter(m => m.author.id === bot.user.id);
-
-        await Promise.all(botMessages.map(m => bot.deleteMessage(msg.channel.id, m.id)));
-      } catch (e) {
-        console.error(`Failed to purge messages: ${e.message}`);
-      }
-    } else {
-      const errorMsg = await bot.createMessage(msg.channel.id, "Please provide a valid number of messages to purge.");
-      setTimeout(() => bot.deleteMessage(msg.channel.id, errorMsg.id), 5000);
-    }
-  }
 });
 
 
