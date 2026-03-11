@@ -60,40 +60,6 @@ const axios = require('axios');
 const HUGGING_FACE_API_KEY = process.env.HUGGING_FACE_API_KEY;
 const modelUrl = 'https://router.huggingface.co/v1/chat/completions';
 
-// Prevent uncaught exceptions from crashing the process
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
-});
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled rejection at:', promise, 'reason:', reason);
-});
-
-// Global Eris error listener to avoid unhandled 'error' events
-bot.on("error", (err) => {
-  console.error("Bot error:", err);
-});
-
-// Shard lifecycle listeners for better visibility and handling
-bot.on("shardDisconnect", (event) => {
-  console.warn("Shard disconnected:", event);
-});
-
-bot.on("shardReady", (shardId) => {
-  console.log(`Shard ${shardId} ready`);
-});
-
-bot.on("shardResume", (shardId) => {
-  console.log(`Shard ${shardId} resumed`);
-});
-
-bot.on("shardDisconnect", (shardId, code) => {
-  console.warn(`Shard ${shardId} disconnected with code ${code}`);
-});
-
-bot.on("ready", () => {
-  console.log("Bot is ready");
-});
-
 // Optional raw websocket packet listener for specific gateway events
 bot.on("rawWS", (packet) => {
   if (packet.t === "RESUMED") console.log("Resumed session");
@@ -158,6 +124,40 @@ bot.on('messageCreate', async (msg) => {
     }
 });
 
+
+// Prevent uncaught exceptions from crashing the process
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
+});
+
+// Global Eris error listener to avoid unhandled 'error' events
+bot.on("error", (err) => {
+  console.error("Bot error:", err);
+});
+
+// Shard lifecycle listeners for better visibility and handling
+bot.on("shardDisconnect", (event) => {
+  console.warn("Shard disconnected:", event);
+});
+
+bot.on("shardReady", (shardId) => {
+  console.log(`Shard ${shardId} ready`);
+});
+
+bot.on("shardResume", (shardId) => {
+  console.log(`Shard ${shardId} resumed`);
+});
+
+bot.on("shardDisconnect", (shardId, code) => {
+  console.warn(`Shard ${shardId} disconnected with code ${code}`);
+});
+
+bot.on("ready", () => {
+  console.log("Bot is ready");
+});
 
 bot.connect().then(() => {
     console.log('Bot connected successfully.');
