@@ -42,7 +42,12 @@ patchShard();
 
 // Replace TOKEN with your bot account's token
 // the value is pulled from process.env.token (set by dotenv or environment)
-const bot = new Eris(process.env.token);
+const bot = new Eris(process.env.token, {
+  maxShards: "auto",
+  restMode: true,
+  reconnect: true,
+  defaultImageFormat: "jpg"
+});
 
 // warn if token is missing so the error is clearer
 if (!process.env.token) {
@@ -55,13 +60,53 @@ const axios = require('axios');
 const HUGGING_FACE_API_KEY = process.env.HUGGING_FACE_API_KEY;
 const modelUrl = 'https://router.huggingface.co/v1/chat/completions';
 
+// Prevent uncaught exceptions from crashing the process
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
+});
+
+// Global Eris error listener to avoid unhandled 'error' events
+bot.on("error", (err) => {
+  console.error("Bot error:", err);
+});
+
+// Shard lifecycle listeners for better visibility and handling
+bot.on("shardDisconnect", (event) => {
+  console.warn("Shard disconnected:", event);
+});
+
+bot.on("shardReady", (shardId) => {
+  console.log(`Shard ${shardId} ready`);
+});
+
+bot.on("shardResume", (shardId) => {
+  console.log(`Shard ${shardId} resumed`);
+});
+
+bot.on("shardDisconnect", (shardId, code) => {
+  console.warn(`Shard ${shardId} disconnected with code ${code}`);
+});
+
+bot.on("ready", () => {
+  console.log("Bot is ready");
+});
+
+// Optional raw websocket packet listener for specific gateway events
+bot.on("rawWS", (packet) => {
+  if (packet.t === "RESUMED") console.log("Resumed session");
+  if (packet.t === "RECONNECT") console.warn("Gateway asked to reconnect");
+});
+
 bot.on('messageCreate', async (msg) => {
     if (msg.author.id === bot.user.id) return; // Avoid responding to self
 
     const userInput = msg.content;
 
     try {
-        // Fetch the last 10 messages from the channel
+        // Fetch the last 25 messages from the channel
         const messages = await bot.getMessages(msg.channel.id, 25);
 
         // Create prompt with recent messages
